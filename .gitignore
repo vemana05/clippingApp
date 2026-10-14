@@ -1,0 +1,25 @@
+# Portable/bundled runtimes - large, platform-specific, not meant for git.
+# Set up locally per the project's own install steps instead.
+.bin/
+.ollama/
+.python312/
+venv/
+venv_py39_backup/
+
+# Vendored model weights - large binaries, keep them locally, not in git.
+asd_model/weight/*.model
+asd_model/model/faceDetector/s3fd/*.pth
+
+# Generated at runtime / per-user data - never commit someone's downloaded
+# videos, generated clips, or uploaded campaign briefs.
+downloads/
+output/
+campaigns/
+
+# Python
+__pycache__/
+*.pyc
+
+# OS / tooling
+.DS_Store
+.claude/

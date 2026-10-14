@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clipping App</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #171a21;
+    --border: #2a2e38;
+    --text: #f0f1f5;
+    --muted: #9aa0ac;
+    --accent: #ff3b5c;
+    --accent2: #2ee6a8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 48px 20px;
+  }
+  .wrap { max-width: 640px; width: 100%; }
+  h1 { font-size: 28px; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 32px; font-size: 15px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .row { display: flex; gap: 10px; }
+  input[type=text] {
+    flex: 1;
+    background: #0c0e12;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-size: 15px;
+    outline: none;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 14px 22px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button:disabled { background: #45404a; cursor: not-allowed; }
+  button.secondary {
+    background: #232733;
+    color: var(--text);
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+  .progress-stage { font-size: 14px; color: var(--muted); margin-bottom: 10px; display: flex; justify-content: space-between; }
+  .bar-track { height: 10px; background: #0c0e12; border-radius: 6px; overflow: hidden; }
+  .bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 0.4s ease;
+  }
+  .error { color: #ff6b6b; font-size: 14px; white-space: pre-wrap; margin-top: 10px; }
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 14px;
+  }
+  .clip-card {
+    background: #0c0e12; border: 1px solid var(--border); border-radius: 12px;
+    padding: 10px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .clip-card video {
+    width: 100%; aspect-ratio: 9 / 16; border-radius: 8px;
+    background: #000; object-fit: cover;
+  }
+  .clip-card-footer { display: flex; align-items: center; justify-content: space-between; }
+  .clip-name-group { display: flex; align-items: center; gap: 6px; }
+  .clip-name { font-size: 13px; color: var(--muted); }
+  .hook-badge {
+    font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px;
+    background: rgba(120, 170, 255, 0.15); color: #9cc0ff; cursor: help;
+  }
+  [hidden] { display: none !important; }
+  a.dl { text-decoration: none; }
+  .file-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+  input[type=file] { color: var(--muted); font-size: 13px; flex: 1; }
+  .campaign-summary { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .campaign-summary b { color: var(--text); }
+  .campaign-tag {
+    display: inline-block; background: rgba(46, 230, 168, 0.15); color: var(--accent2);
+    border-radius: 6px; padding: 1px 6px; font-size: 12px; margin-left: 4px;
+  }
+  .caption-box { border-top: 1px solid var(--border); padding-top: 8px; margin-top: 2px; }
+  .caption-text { font-size: 12.5px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
+  .chat-log { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; max-height: 90px; overflow-y: auto; }
+  .chat-msg { font-size: 11.5px; padding: 4px 7px; border-radius: 7px; max-width: 90%; }
+  .chat-msg.user { align-self: flex-end; background: rgba(255, 59, 92, 0.18); }
+  .chat-msg.assistant { align-self: flex-start; background: #1c2028; color: var(--muted); }
+  .chat-row { display: flex; gap: 6px; }
+  .chat-row input[type=text] { padding: 8px 10px; font-size: 12.5px; border-radius: 8px; }
+  .chat-row button { padding: 8px 10px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Clipping App</h1>
+  <p class="sub">Paste a YouTube link. Get 5 auto-cropped, subtitled TikTok clips.</p>
+
+  <div class="card">
+    <div class="row">
+      <input id="url" type="text" placeholder="https://www.youtube.com/watch?v=...">
+      <button id="generateBtn">Generate 5 clips</button>
+    </div>
+    <div class="file-row">
+      <span style="font-size:12px;color:var(--muted);white-space:nowrap;">or upload:</span>
+      <input id="videoFile" type="file" accept="video/*">
+      <span id="videoFileLabel" style="font-size:12px;color:var(--muted);"></span>
+    </div>
+    <div class="file-row">
+      <input id="campaignPdf" type="file" accept="application/pdf">
+      <span id="campaignPdfLabel" style="font-size:12px;color:var(--muted);">Optional: campaign brief PDF</span>
+    </div>
+  </div>
+
+  <div class="card" id="campaignCard" hidden>
+    <div class="campaign-summary" id="campaignSummary"></div>
+  </div>
+
+  <div class="card" id="progressCard" hidden>
+    <div class="progress-stage">
+      <span id="stageText">Starting...</span>
+      <span id="elapsedText"></span>
+    </div>
+    <div class="bar-track"><div class="bar-fill" id="barFill"></div></div>
+    <div class="error" id="errorText" hidden></div>
+  </div>
+
+  <div class="card" id="resultsCard" hidden>
+    <div class="gallery" id="clipList"></div>
+  </div>
+</div>
+
+<script>
+const urlInput = document.getElementById('url');
+const videoFileInput = document.getElementById('videoFile');
+const videoFileLabel = document.getElementById('videoFileLabel');
+const campaignPdfInput = document.getElementById('campaignPdf');
+const campaignPdfLabel = document.getElementById('campaignPdfLabel');
+const generateBtn = document.getElementById('generateBtn');
+const progressCard = document.getElementById('progressCard');
+const campaignCard = document.getElementById('campaignCard');
+const campaignSummary = document.getElementById('campaignSummary');
+const resultsCard = document.getElementById('resultsCard');
+const stageText = document.getElementById('stageText');
+const elapsedText = document.getElementById('elapsedText');
+const barFill = document.getElementById('barFill');
+const errorText = document.getElementById('errorText');
+const clipList = document.getElementById('clipList');
+
+let pollTimer = null;
+
+campaignPdfInput.addEventListener('change', () => {
+  const f = campaignPdfInput.files[0];
+  campaignPdfLabel.textContent = f ? f.name : 'Optional: campaign brief PDF';
+});
+
+// URL and uploaded-video-file are mutually exclusive - picking one clears the other.
+videoFileInput.addEventListener('change', () => {
+  const f = videoFileInput.files[0];
+  videoFileLabel.textContent = f ? f.name : '';
+  if (f) urlInput.value = '';
+});
+urlInput.addEventListener('input', () => {
+  if (urlInput.value.trim()) {
+    videoFileInput.value = '';
+    videoFileLabel.textContent = '';
+  }
+});
+
+function fmtElapsed(s) {
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return m > 0 ? `${m}m ${sec}s elapsed` : `${sec}s elapsed`;
+}
+
+async function startJob() {
+  const url = urlInput.value.trim();
+  const videoFile = videoFileInput.files[0];
+  if (!url && !videoFile) return;
+
+  generateBtn.disabled = true;
+  progressCard.hidden = false;
+  campaignCard.hidden = true;
+  resultsCard.hidden = true;
+  errorText.hidden = true;
+  barFill.style.width = '0%';
+  stageText.textContent = 'Starting...';
+
+  let jobId;
+  try {
+    const form = new FormData();
+    if (url) form.append('url', url);
+    if (videoFile) form.append('video_file', videoFile);
+    const pdfFile = campaignPdfInput.files[0];
+    if (pdfFile) form.append('campaign_pdf', pdfFile);
+    const res = await fetch('/api/generate', { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to start job');
+    jobId = data.job_id;
+  } catch (e) {
+    stageText.textContent = 'Failed to start';
+    errorText.hidden = false;
+    errorText.textContent = e.message;
+    generateBtn.disabled = false;
+    return;
+  }
+
+  pollTimer = setInterval(() => pollStatus(jobId), 1000);
+}
+
+async function pollStatus(jobId) {
+  const res = await fetch(`/api/status/${jobId}`);
+  if (!res.ok) return;
+  const s = await res.json();
+
+  barFill.style.width = `${s.progress}%`;
+  stageText.textContent = s.stage;
+  elapsedText.textContent = fmtElapsed(s.elapsed);
+
+  if (s.status === 'error') {
+    clearInterval(pollTimer);
+    stageText.textContent = 'Something went wrong';
+    errorText.hidden = false;
+    errorText.textContent = s.error || 'Unknown error';
+    generateBtn.disabled = false;
+  } else if (s.status === 'done') {
+    clearInterval(pollTimer);
+    generateBtn.disabled = false;
+    showCampaign(s.campaign);
+    showResults(jobId, s.files, s.rankings || [], s.captions || []);
+  }
+}
+
+function showCampaign(campaign) {
+  // Built with textContent/DOM nodes, never innerHTML - this content
+  // comes from an LLM reading a PDF that may originate from a third
+  // party (a brand or an intermediary), so it's treated as untrusted text.
+  campaignSummary.innerHTML = '';
+  if (!campaign) { campaignCard.hidden = true; return; }
+
+  const line1 = document.createElement('div');
+  const brandEl = document.createElement('b');
+  brandEl.textContent = `Campaign: ${campaign.brand || '(unnamed)'}`;
+  line1.appendChild(brandEl);
+  (campaign.required_hashtags || []).forEach(t => {
+    const tag = document.createElement('span');
+    tag.className = 'campaign-tag';
+    tag.textContent = t;
+    line1.appendChild(tag);
+  });
+  campaignSummary.appendChild(line1);
+
+  const addLine = (text) => {
+    const div = document.createElement('div');
+    div.textContent = text;
+    campaignSummary.appendChild(div);
+  };
+  if (campaign.summary) addLine(campaign.summary);
+  if (campaign.required_keywords && campaign.required_keywords.length) {
+    addLine(`Required in every clip: ${campaign.required_keywords.join(', ')}`);
+  }
+  if (campaign.tone) addLine(`Tone: ${campaign.tone}`);
+
+  campaignCard.hidden = false;
+}
+
+function showResults(jobId, files, rankings, captions) {
+  clipList.innerHTML = '';
+  files.forEach((name, i) => {
+    const card = document.createElement('div');
+    card.className = 'clip-card';
+
+    const video = document.createElement('video');
+    video.controls = true;
+    video.preload = 'metadata';
+    video.playsInline = true;
+    video.src = `/api/media/${jobId}/${encodeURIComponent(name)}`;
+
+    const footer = document.createElement('div');
+    footer.className = 'clip-card-footer';
+    const nameGroup = document.createElement('div');
+    nameGroup.className = 'clip-name-group';
+    const label = document.createElement('span');
+    label.className = 'clip-name';
+    label.textContent = `Clip ${i + 1}`;
+    nameGroup.appendChild(label);
+    const pct = rankings[i];
+    if (pct !== null && pct !== undefined) {
+      const badge = document.createElement('span');
+      badge.className = 'hook-badge';
+      badge.textContent = `${pct}%`;
+      badge.title = 'Estimated hook strength relative to your OTHER clips from this video only ' +
+        '(audio energy + funny/weird moments + comment reactions) - not a real virality prediction.';
+      nameGroup.appendChild(badge);
+    }
+    const link = document.createElement('a');
+    link.className = 'dl';
+    link.href = `/api/download/${jobId}/${encodeURIComponent(name)}`;
+    link.setAttribute('download', name);
+    const btn = document.createElement('button');
+    btn.className = 'secondary';
+    btn.textContent = 'Download';
+    link.appendChild(btn);
+    footer.appendChild(nameGroup);
+    footer.appendChild(link);
+
+    card.appendChild(video);
+    card.appendChild(footer);
+    card.appendChild(buildCaptionBox(jobId, name, captions[i] || ''));
+    clipList.appendChild(card);
+  });
+  resultsCard.hidden = false;
+}
+
+function buildCaptionBox(jobId, name, initialCaption) {
+  const box = document.createElement('div');
+  box.className = 'caption-box';
+
+  const captionText = document.createElement('div');
+  captionText.className = 'caption-text';
+  captionText.textContent = initialCaption;
+
+  const chatLog = document.createElement('div');
+  chatLog.className = 'chat-log';
+  chatLog.hidden = true;
+
+  const chatRow = document.createElement('div');
+  chatRow.className = 'chat-row';
+  const chatInput = document.createElement('input');
+  chatInput.type = 'text';
+  chatInput.placeholder = 'e.g. "make it funnier"';
+  const chatBtn = document.createElement('button');
+  chatBtn.className = 'secondary';
+  chatBtn.textContent = 'Revise';
+
+  function addMsg(role, text) {
+    const msg = document.createElement('div');
+    msg.className = `chat-msg ${role}`;
+    msg.textContent = text;
+    chatLog.appendChild(msg);
+    chatLog.hidden = false;
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+
+  async function sendRevision() {
+    const message = chatInput.value.trim();
+    if (!message) return;
+    chatInput.value = '';
+    chatBtn.disabled = true;
+    addMsg('user', message);
+    try {
+      const res = await fetch(`/api/caption/${jobId}/${encodeURIComponent(name)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Revision failed');
+      captionText.textContent = data.caption;
+      addMsg('assistant', data.caption);
+    } catch (e) {
+      addMsg('assistant', `(${e.message})`);
+    } finally {
+      chatBtn.disabled = false;
+    }
+  }
+
+  chatBtn.addEventListener('click', sendRevision);
+  chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendRevision(); });
+
+  chatRow.appendChild(chatInput);
+  chatRow.appendChild(chatBtn);
+  box.appendChild(captionText);
+  box.appendChild(chatLog);
+  box.appendChild(chatRow);
+  return box;
+}
+
+generateBtn.addEventListener('click', startJob);
+urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') startJob(); });
+</script>
+</body>
+</html>
